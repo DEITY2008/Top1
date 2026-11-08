@@ -24,9 +24,18 @@ jobs:
       - name: Accept Android licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+      - name: Install Gradle 8.9
+        run: |
+          for i in 1 2 3 4 5; do
+            curl -fsSL --retry 3 -o gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip && break
+            echo "retry $i"; sleep 15
+          done
+          if [ -s gradle.zip ]; then
+            unzip -q gradle.zip -d "$HOME"
+            echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+          else
+            echo "download failed, using runner's Gradle"
+          fi
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
