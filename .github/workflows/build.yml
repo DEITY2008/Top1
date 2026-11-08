@@ -21,6 +21,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Locate project
+        id: loc
+        run: |
+          f=$(find . -name settings.gradle.kts -not -path '*/node_modules/*' | head -1)
+          if [ -z "$f" ]; then
+            echo "settings.gradle.kts not found. Files in repo:"
+            find . -maxdepth 3 -not -path './.git/*' | head -50
+            exit 1
+          fi
+          d=$(dirname "$f")
+          echo "Project dir: $d"
+          echo "dir=$d" >> "$GITHUB_OUTPUT"
+          ls -la "$d" "$d/app"
+
       - name: Accept Android licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
@@ -36,20 +50,23 @@ jobs:
           else
             echo "download failed, using runner's Gradle"
           fi
+          rm -f gradle.zip
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: gradle :app:assembleDebug --no-daemon --console=plain
 
       - name: Rename APK
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: cp app/build/outputs/apk/debug/app-debug.apk THEP-RC.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: THEP-RC-apk
-          path: THEP-RC.apk
+          path: ${{ steps.loc.outputs.dir }}/THEP-RC.apk
 
       - name: Publish release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: THEP-RC.apk
+          files: ${{ steps.loc.outputs.dir }}/THEP-RC.apk
