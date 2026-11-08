@@ -21,10 +21,18 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Unpack project zip (if present)
+        run: |
+          z=$(find . -maxdepth 2 -iname '*.zip' -not -path './.git/*' | head -1)
+          if [ -n "$z" ] && [ -z "$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)" ]; then
+            echo "Unzipping $z"
+            unzip -q "$z" -d unpacked
+          fi
+
       - name: Locate project
         id: loc
         run: |
-          f=$(find . -name settings.gradle.kts -not -path '*/node_modules/*' | head -1)
+          f=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
           if [ -z "$f" ]; then
             echo "settings.gradle.kts not found. Files in repo:"
             find . -maxdepth 3 -not -path './.git/*' | head -50
@@ -41,16 +49,15 @@ jobs:
       - name: Install Gradle 8.9
         run: |
           for i in 1 2 3 4 5; do
-            curl -fsSL --retry 3 -o gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip && break
+            curl -fsSL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip && break
             echo "retry $i"; sleep 15
           done
-          if [ -s gradle.zip ]; then
-            unzip -q gradle.zip -d "$HOME"
+          if [ -s /tmp/gradle.zip ]; then
+            unzip -q /tmp/gradle.zip -d "$HOME"
             echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
           else
             echo "download failed, using runner's Gradle"
           fi
-          rm -f gradle.zip
 
       - name: Build debug APK
         working-directory: ${{ steps.loc.outputs.dir }}
